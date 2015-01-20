@@ -1,0 +1,19 @@
+{
+    "appKeys": {},
+    "capabilities": [
+        ""
+    ],
+    "companyName": "liangchen1ce@gmail.com",
+    "longName": "accelerometer",
+    "projectType": "native",
+    "resources": {
+        "media": []
+    },
+    "shortName": "accelerometer",
+    "uuid": "188271be-3406-4038-9f54-03509b34307e",
+    "versionCode": 1,
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
+    }
+}
