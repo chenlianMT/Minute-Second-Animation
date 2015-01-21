@@ -8,7 +8,7 @@ static int CURRENT_TIME_SECOND = -1;// when number window is toggled, every numb
 #define BAR_DENSITY 0.25
 #define ACCEL_RATIO 0.007
 #define ACCEL_STEP_MS 50
-static int DIM_RANGE[12] = {9, 9, 9, 9, 9, 9, 9, 9, 10, 11, 11, 9};
+static int DIM_RANGE[12] = {7, 7, 7, 7, 7, 7, 7, 7, 8, 9, 9, 7};
 
 typedef struct Vec2d {
   double  x;
@@ -66,6 +66,12 @@ void ftoa(char* str, double val, int precision) {
   *str = '\0';
 }
 
+static double absolut(double input){
+    if (input < 0){
+        input = -input;
+    }
+    return input;
+}
 
 static void get_current_time() {
     // Get a tm structure
@@ -87,6 +93,36 @@ static void get_current_time() {
     }
 }
 
+static int update_collision(hour_bar bar1, hour_bar bar2){
+    int result = 0;
+    //double decay_coe = 3;
+    if ((bar2.outer_square.top <= bar1.outer_square.down) && (bar1.outer_square.top <= bar2.outer_square.down) && 
+            (bar2.outer_square.left <= bar1.outer_square.left) && (bar1.outer_square.left <= bar2.outer_square.right)) {
+//         bar1.vel.x = -bar1.vel.x * decay_coe;
+//         bar1.vel.y = -bar1.vel.y * decay_coe;
+        result = 1; // left-side inside
+    }
+    if ((bar2.outer_square.top <= bar1.outer_square.down) && (bar1.outer_square.top <= bar2.outer_square.down) && 
+            (bar2.outer_square.left <= bar1.outer_square.right) && (bar1.outer_square.right <= bar2.outer_square.right)) {
+//         bar1.vel.x = -bar1.vel.x * decay_coe;
+//         bar1.vel.y = -bar1.vel.y * decay_coe;
+        result = 10; // right-side inside
+    }
+    if ((bar2.outer_square.top <= bar1.outer_square.down) && (bar1.outer_square.down <= bar2.outer_square.down) && 
+            (bar2.outer_square.left <= bar1.outer_square.right) && (bar1.outer_square.left <= bar2.outer_square.right)) {
+//         bar1.vel.x = -bar1.vel.x * decay_coe;
+//         bar1.vel.y = -bar1.vel.y * decay_coe;
+        result = 100; // down-side inside
+    }
+    if ((bar2.outer_square.top <= bar1.outer_square.top) && (bar1.outer_square.top <= bar2.outer_square.down) && 
+            (bar2.outer_square.left <= bar1.outer_square.right) && (bar1.outer_square.left <= bar2.outer_square.right)){
+//         bar1.vel.x = -bar1.vel.x * decay_coe;
+//         bar1.vel.y = -bar1.vel.y * decay_coe;
+        result = 1000; // top-side inside
+    }
+    return result;
+}
+
 static double bar_calc_mass(hour_bar bar) {
   return bar.dim * bar.dim * BAR_DENSITY;
 }
@@ -94,7 +130,7 @@ static double bar_calc_mass(hour_bar bar) {
 static void bars_init() {
     hour_bars[0].pos.x = 1;
     hour_bars[0].pos.y = 1;
-    hour_bars[0].dim = rand() % DIM_RANGE[0] + 8;
+    hour_bars[0].dim = rand() % DIM_RANGE[0] + 10;
     hour_bars[0].outer_square.top = hour_bars[0].pos.y;
     hour_bars[0].outer_square.down = hour_bars[0].outer_square.top + hour_bars[0].dim + 1;
     hour_bars[0].outer_square.left = hour_bars[0].pos.x;
@@ -104,7 +140,7 @@ static void bars_init() {
     hour_bars[0].mass = bar_calc_mass(hour_bars[0]);
     
     for(int i=1;i<12;i++){
-        hour_bars[i].pos.x = hour_bars[i-1].outer_square.right;
+        hour_bars[i].pos.x = hour_bars[i-1].outer_square.right+1;
         hour_bars[i].pos.y = 1;
         hour_bars[i].dim = rand() % DIM_RANGE[i] + 8;
         hour_bars[i].outer_square.top = hour_bars[i].pos.y;
@@ -118,15 +154,11 @@ static void bars_init() {
 }
 
 static void bars_apply_force(Vec2d force) {
+    int air_force = 0.9;
     for (int i=0;i<CURRENT_TIME_HOUR;i++){
         hour_bars[i].vel.x += force.x/hour_bars[i].mass;
         hour_bars[i].vel.y += force.y/hour_bars[i].mass;
     }
-    
-    temp_int++;
-    char* stringForSelectedHour = "";
-    ftoa(stringForSelectedHour, hour_bars[temp_int%12].outer_square.top, 3);
-    text_layer_set_text(s_background_layer, stringForSelectedHour);
 }
 
 static void bars_apply_accel(AccelData accel) {
@@ -137,18 +169,62 @@ static void bars_apply_accel(AccelData accel) {
 }
 
 static void bars_update() {
-    double decay_coe = 0.8;
+    double decay_coe = 0.6;
     for (int i=0;i<CURRENT_TIME_HOUR;i++){
+        bool collide_on_walls = false;
+        bool collide_on_ceil_or_floor = false;
+
         // Detect collision and update velocity
         if ((hour_bars[i].outer_square.left < 0 && hour_bars[i].vel.x < 0)
             || (hour_bars[i].outer_square.right > 144 && hour_bars[i].vel.x > 0)) {
             hour_bars[i].vel.x = -hour_bars[i].vel.x * decay_coe;
+            collide_on_walls = true;
         }
         if ((hour_bars[i].outer_square.top < 0 && hour_bars[i].vel.y < 0)
             || (hour_bars[i].outer_square.down > 168 && hour_bars[i].vel.y > 0)) {
             hour_bars[i].vel.y = -hour_bars[i].vel.y * decay_coe;
+            collide_on_ceil_or_floor = true;
         }
 
+        int collision_of_all_bars = 0;
+        for (int j=0;j<CURRENT_TIME_HOUR;j++){
+            // collision parameter:
+            // 0: no collision
+            // 1: left side of bar1
+            // 10: right side of bar1
+            // 100: down side of bar1
+            // 1000: top side of bar1
+            if (i != j){
+                int collision_para = update_collision(hour_bars[i], hour_bars[j]);
+                collision_of_all_bars += collision_para;
+                if (collision_para > 0){
+                    if (collision_para % 10 == 1){
+                        hour_bars[i].vel.x = absolut(hour_bars[i].vel.x) * 1.01;
+                    } if (collision_para % 100 > 1){
+                        hour_bars[i].vel.x = -absolut(hour_bars[i].vel.x) * 1.01;
+                    } if (collision_para % 1000 > 11){
+                        hour_bars[i].vel.y = -absolut(hour_bars[i].vel.y) * 1.01;
+                    } if (collision_para % 10000 > 111){
+                        hour_bars[i].vel.y = absolut(hour_bars[i].vel.y) * 1.01;
+                    }
+                    
+                    if (collide_on_walls){
+                        hour_bars[i].vel.x = 0;
+                    }
+                    if (collide_on_ceil_or_floor){
+                        hour_bars[i].vel.y = 0;
+                    }
+            }
+            }
+        } if (collision_of_all_bars == 0){
+            hour_bars[i].vel.x *= 0.9;
+            hour_bars[i].vel.y *= 0.9;
+        }
+        if (i == 0){
+        char* stringForSelectedHour = "";
+        ftoa(stringForSelectedHour, collision_of_all_bars, 3);
+        text_layer_set_text(s_background_layer, stringForSelectedHour);}
+        
         // Update all parameters basing on new location
         hour_bars[i].pos.x += hour_bars[i].vel.x;
         hour_bars[i].pos.y += hour_bars[i].vel.y;
@@ -189,7 +265,7 @@ static void window_load(Window *window) {
     s_background_layer = text_layer_create(frame);
     text_layer_set_background_color(s_background_layer, GColorWhite);
     text_layer_set_text_color(s_background_layer, GColorBlack);
-    text_layer_set_text(s_background_layer, "00:00");
+    text_layer_set_text(s_background_layer, "9999");
     text_layer_set_font(s_background_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
     text_layer_set_text_alignment(s_background_layer, GTextAlignmentCenter);
     layer_add_child(window_layer, text_layer_get_layer(s_background_layer));
@@ -203,6 +279,7 @@ static void window_load(Window *window) {
         s_inverterlayers[i] = inverter_layer_create(GRect(hour_bars[i].outer_square.left, hour_bars[i].outer_square.top, hour_bars[i].dim, hour_bars[i].dim));
     }
  
+    CURRENT_TIME_HOUR = 2;
     for (int i=0;i<CURRENT_TIME_HOUR;i++){
         layer_add_child(window_get_root_layer(window), inverter_layer_get_layer(s_inverterlayers[i]));
     }
