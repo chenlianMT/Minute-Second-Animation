@@ -100,25 +100,25 @@ static int update_collision(hour_bar bar1, hour_bar bar2){
             (bar2.outer_square.left <= bar1.outer_square.left) && (bar1.outer_square.left <= bar2.outer_square.right)) {
 //         bar1.vel.x = -bar1.vel.x * decay_coe;
 //         bar1.vel.y = -bar1.vel.y * decay_coe;
-        result = 1; // left-side inside
+        result += 1; // left-side inside
     }
     if ((bar2.outer_square.top <= bar1.outer_square.down) && (bar1.outer_square.top <= bar2.outer_square.down) && 
             (bar2.outer_square.left <= bar1.outer_square.right) && (bar1.outer_square.right <= bar2.outer_square.right)) {
 //         bar1.vel.x = -bar1.vel.x * decay_coe;
 //         bar1.vel.y = -bar1.vel.y * decay_coe;
-        result = 10; // right-side inside
+        result += 10; // right-side inside
     }
     if ((bar2.outer_square.top <= bar1.outer_square.down) && (bar1.outer_square.down <= bar2.outer_square.down) && 
             (bar2.outer_square.left <= bar1.outer_square.right) && (bar1.outer_square.left <= bar2.outer_square.right)) {
 //         bar1.vel.x = -bar1.vel.x * decay_coe;
 //         bar1.vel.y = -bar1.vel.y * decay_coe;
-        result = 100; // down-side inside
+        result += 100; // down-side inside
     }
     if ((bar2.outer_square.top <= bar1.outer_square.top) && (bar1.outer_square.top <= bar2.outer_square.down) && 
             (bar2.outer_square.left <= bar1.outer_square.right) && (bar1.outer_square.left <= bar2.outer_square.right)){
 //         bar1.vel.x = -bar1.vel.x * decay_coe;
 //         bar1.vel.y = -bar1.vel.y * decay_coe;
-        result = 1000; // top-side inside
+        result += 1000; // top-side inside
     }
     return result;
 }
@@ -154,7 +154,6 @@ static void bars_init() {
 }
 
 static void bars_apply_force(Vec2d force) {
-    int air_force = 0.9;
     for (int i=0;i<CURRENT_TIME_HOUR;i++){
         hour_bars[i].vel.x += force.x/hour_bars[i].mass;
         hour_bars[i].vel.y += force.y/hour_bars[i].mass;
@@ -169,7 +168,7 @@ static void bars_apply_accel(AccelData accel) {
 }
 
 static void bars_update() {
-    double decay_coe = 0.6;
+    double decay_coe = 0.8;
     for (int i=0;i<CURRENT_TIME_HOUR;i++){
         bool collide_on_walls = false;
         bool collide_on_ceil_or_floor = false;
@@ -214,11 +213,11 @@ static void bars_update() {
                     if (collide_on_ceil_or_floor){
                         hour_bars[i].vel.y = 0;
                     }
-            }
+                }
             }
         } if (collision_of_all_bars == 0){
-            hour_bars[i].vel.x *= 0.9;
-            hour_bars[i].vel.y *= 0.9;
+            hour_bars[i].vel.x *= 0.999999;
+            hour_bars[i].vel.y *= 0.999999;
         }
         if (i == 0){
         char* stringForSelectedHour = "";
@@ -279,7 +278,7 @@ static void window_load(Window *window) {
         s_inverterlayers[i] = inverter_layer_create(GRect(hour_bars[i].outer_square.left, hour_bars[i].outer_square.top, hour_bars[i].dim, hour_bars[i].dim));
     }
  
-    CURRENT_TIME_HOUR = 2;
+    //CURRENT_TIME_HOUR = 2;
     for (int i=0;i<CURRENT_TIME_HOUR;i++){
         layer_add_child(window_get_root_layer(window), inverter_layer_get_layer(s_inverterlayers[i]));
     }
